@@ -184,15 +184,56 @@ export default function SalespersonPay() {
         );
         
       } else {
-        throw new Error(response.error || 'Payment failed');
+        // Handle API error responses with user-friendly messages
+        let errorMessage = 'Payment could not be processed.';
+        
+        if (response.error) {
+          const errorText = response.error.toLowerCase();
+          
+          if (errorText.includes('insufficient') || errorText.includes('balance')) {
+            errorMessage = `Insufficient balance on card ${cardData.uid}.\n\nCard Balance: $${cardData.deviceBalance.toFixed(2)}\nRequired Amount: $${totalAmountDollars.toFixed(2)}\n\nPlease top-up the card or use a different payment method.`;
+          } else if (errorText.includes('card not found') || errorText.includes('invalid card')) {
+            errorMessage = `Card ${cardData.uid} not found in the system. Please contact support.`;
+          } else if (errorText.includes('transaction failed') || errorText.includes('payment failed')) {
+            errorMessage = `Transaction could not be completed for card ${cardData.uid}. Please try again.`;
+          } else {
+            errorMessage = `Payment failed: ${response.error}`;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
       
     } catch (error) {
       console.error('❌ Payment error:', error);
       setStatus('failed');
+      
+      // Parse error message to show user-friendly messages
+      let errorMessage = 'Unknown error occurred. Please try again.';
+      
+      if (error instanceof Error) {
+        const errorText = error.message.toLowerCase();
+        
+        if (errorText.includes('insufficient') || errorText.includes('balance') || errorText.includes('400')) {
+          errorMessage = `Insufficient balance on card ${cardData.uid}.\n\nCard Balance: $${cardData.deviceBalance.toFixed(2)}\nRequired Amount: $${totalAmountDollars.toFixed(2)}\n\nPlease top-up the card or use a different payment method.`;
+        } else if (errorText.includes('network') || errorText.includes('connection')) {
+          errorMessage = 'Network connection error. Please check your internet connection and try again.';
+        } else if (errorText.includes('timeout')) {
+          errorMessage = 'Request timed out. Please try again.';
+        } else if (errorText.includes('card') && errorText.includes('not found')) {
+          errorMessage = `Card ${cardData.uid} not found in the system. Please contact support.`;
+        } else if (errorText.includes('invalid') || errorText.includes('400')) {
+          errorMessage = 'Invalid payment request. Please try again or contact support.';
+        } else if (errorText.includes('server') || errorText.includes('500')) {
+          errorMessage = 'Server error occurred. Please try again later.';
+        } else {
+          errorMessage = `Payment failed for card ${cardData.uid}. Please try again or contact support if the problem persists.`;
+        }
+      }
+      
       Alert.alert(
         '❌ Payment Failed',
-        `Failed to process payment for card ${cardData.uid}.\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease try again.`,
+        errorMessage,
         [
           {
             text: 'Retry',
